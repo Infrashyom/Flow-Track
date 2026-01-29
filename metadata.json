@@ -1,0 +1,5 @@
+{
+  "name": "FlowTrack - Order Management System",
+  "description": "A comprehensive, multi-role workflow management system for processing orders from sales to delivery. This platform provides dedicated portals for Sales, Team, Digitizer, Vendor, and Admin roles to streamline the entire order lifecycle.",
+  "requestFramePermissions": []
+}
