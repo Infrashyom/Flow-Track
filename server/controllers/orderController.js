@@ -48,11 +48,30 @@ export const syncShopifyOrders = async (req, res) => {
   const extractAndAddAttachments = (text, sourceName, attachments, foundUrls, timestamp) => {
     if (!text || typeof text !== 'string') return;
 
-    const urlRegex = /(https?:\/\/[^\s'"]+)/g;
-    const matches = text.match(urlRegex);
+    const urls = [];
 
-    if (matches) {
-      matches.forEach(url => {
+    // 1. Standard HTTP/HTTPS URLs
+    const urlRegex = /(https?:\/\/[^\s'"]+)/g;
+    const standardMatches = text.match(urlRegex);
+    if (standardMatches) {
+        standardMatches.forEach(m => urls.push(m));
+    }
+
+    // 2. Naked domains (Shopify CDN, Uploadly, etc.) that might lack protocol
+    const nakedRegex = /((?:cdn\.shopify\.com|uploadly\.com|drive\.google\.com|dropbox\.com|app\.box\.com)[\w\-./?%&=]*)/gi;
+    const nakedMatches = text.match(nakedRegex);
+    
+    if (nakedMatches) {
+        nakedMatches.forEach(m => {
+            // Avoid duplicates if http regex caught it
+            if (!urls.some(u => u.includes(m))) {
+                urls.push(m.startsWith('http') ? m : `https://${m}`);
+            }
+        });
+    }
+
+    if (urls.length > 0) {
+      urls.forEach(url => {
         if (!foundUrls.has(url)) {
           let fileName = 'Attachment';
           try {
@@ -63,8 +82,12 @@ export const syncShopifyOrders = async (req, res) => {
               fileName = decodedFileName;
             }
           } catch (e) {
-            // Fallback for URLs that can't be parsed
             fileName = url.substring(url.lastIndexOf('/') + 1).split('?')[0] || sourceName;
+          }
+
+          // Add source context to filename if available (e.g. "Upload Photos - image.jpg")
+          if (sourceName && sourceName !== 'Order Note') {
+              fileName = `${sourceName} - ${fileName}`;
           }
 
           attachments.push({

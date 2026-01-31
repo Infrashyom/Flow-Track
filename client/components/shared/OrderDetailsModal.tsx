@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Order, Attachment, Role, Note, Priority, LineItem, OrderStatus } from '../../types';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
-import { DownloadIcon, FileIcon, TrashIcon, EditIcon, FileUpIcon, PlusIcon, CheckCircleIcon } from '../icons/Icons';
+import { DownloadIcon, FileIcon, TrashIcon, EditIcon, FileUpIcon, PlusIcon, CheckCircleIcon, ExternalLinkIcon } from '../icons/Icons';
 import { useAppContext } from '../../store/AppContext';
 
 interface OrderDetailsModalProps {
@@ -14,8 +14,9 @@ interface OrderDetailsModalProps {
   hideAssociatedStaff?: boolean;
 }
 
-const isImage = (fileName: string) => {
-    return /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(fileName);
+const isImage = (fileName: string, url?: string) => {
+    const pattern = /\.(jpg|jpeg|png|gif|svg|webp)(\?|$)/i;
+    return pattern.test(fileName) || (url && pattern.test(url));
 };
 
 const AttachmentItem: React.FC<{ 
@@ -66,7 +67,7 @@ const AttachmentItem: React.FC<{
 
     return (
         <div className="p-3 mb-2 border rounded-md bg-slate-50 space-y-3">
-            {isImage(attachment.name) ? (
+            {isImage(attachment.name, attachment.url) ? (
                 <div className="cursor-pointer" onClick={() => window.open(attachment.url, '_blank')}>
                     <img src={attachment.url} alt={attachment.name} className="w-full h-auto rounded-md object-cover max-h-60" />
                 </div>
@@ -79,10 +80,19 @@ const AttachmentItem: React.FC<{
             <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>Uploaded by {attachment.uploadedBy} on {new Date(attachment.timestamp).toLocaleDateString()}</span>
                 <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" className="flex items-center" onClick={handleDownload} disabled={isDownloading}>
-                        <DownloadIcon className="w-3.5 h-3.5 mr-1.5" />
-                        {isDownloading ? 'Downloading...' : 'Download'}
-                    </Button>
+                    {/* For Shopify attachments (external links), prefer opening directly */}
+                    {attachment.fromShopify ? (
+                        <Button variant="secondary" size="sm" className="flex items-center" onClick={() => window.open(attachment.url, '_blank')}>
+                            <ExternalLinkIcon className="w-3.5 h-3.5 mr-1.5" />
+                            Open Link
+                        </Button>
+                    ) : (
+                        <Button variant="secondary" size="sm" className="flex items-center" onClick={handleDownload} disabled={isDownloading}>
+                            <DownloadIcon className="w-3.5 h-3.5 mr-1.5" />
+                            {isDownloading ? 'Downloading...' : 'Download'}
+                        </Button>
+                    )}
+                    
                     {canDelete && onDelete && (
                         <Button variant="destructive" size="sm" className="flex items-center px-2" onClick={() => onDelete(attachment)} title="Delete Attachment">
                             <TrashIcon className="w-3.5 h-3.5" />
