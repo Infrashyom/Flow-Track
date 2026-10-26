@@ -1,14 +1,17 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Role, OrderStatus, User, Order } from '../types';
+import { Role, OrderStatus, User, Order, Ticket } from '../types';
 import DashboardLayout from '../components/shared/DashboardLayout';
 import { useAppContext } from '../store/AppContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { BarChartIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, PackageIcon, PencilRulerIcon, SearchIcon, TrashIcon, TruckIcon, UsersIcon, ShopifyIcon } from '../components/icons/Icons';
+import { BarChartIcon, ChevronLeftIcon, ChevronRightIcon, EditIcon, PackageIcon, PencilRulerIcon, SearchIcon, TrashIcon, TruckIcon, UsersIcon, ShopifyIcon, ShieldAlertIcon, TicketIcon } from '../components/icons/Icons';
 import { IncomingQueueView, ShopifySyncModal } from './TeamPortal';
 import OrderDetailsModal from '../components/shared/OrderDetailsModal';
+import { TicketFlowBoard } from '../components/tickets/TicketFlowBoard';
+import { TicketDetailsModal } from '../components/tickets/TicketDetailsModal';
+import { RaiseTicketModal } from '../components/tickets/RaiseTicketModal';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
     <Card>
@@ -72,11 +75,13 @@ const UserForm: React.FC<{ user?: User | null; onSave: (user: Omit<User, 'id'> |
 const USERS_PER_PAGE = 5;
 
 const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-  const { orders, users, addUser, updateUser, deleteUser } = useAppContext();
+  const { orders, users, tickets, currentUser, addUser, updateUser, deleteUser } = useAppContext();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isRaiseTicketOpen, setIsRaiseTicketOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
@@ -87,19 +92,27 @@ const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
         return acc;
     }, {} as Record<string, number>);
 
+    const pendingAdminTickets = tickets.filter(t => t.adminPing?.pinged && t.adminPing.status === 'pending').length;
+
     return {
       totalOrders: orders.length,
       totalUsers: users.length,
+      totalTickets: tickets.length,
+      pendingAdminTickets,
       sales: roleCounts[Role.SALES] || 0,
       team: roleCounts[Role.TEAM] || 0,
       digitizers: roleCounts[Role.DIGITIZER] || 0,
       vendors: roleCounts[Role.VENDOR] || 0,
     };
-  }, [orders, users]);
+  }, [orders, users, tickets]);
 
-  const tabCounts = useMemo(() => ({
-    incoming_queue: orders.filter(o => [OrderStatus.AT_TEAM, OrderStatus.TEAM_REVIEW].includes(o.status)).length
-  }), [orders]);
+  const tabCounts = useMemo(() => {
+    const pendingAdminCount = tickets.filter(t => t.adminPing?.pinged && t.adminPing.status === 'pending').length;
+    return {
+      incoming_queue: orders.filter(o => [OrderStatus.AT_TEAM, OrderStatus.TEAM_REVIEW].includes(o.status)).length,
+      tickets: pendingAdminCount > 0 ? pendingAdminCount : tickets.length,
+    };
+  }, [orders, tickets]);
 
   const handleSaveUser = (user: Omit<User, 'id'> | User) => {
     if ('id' in user) {
@@ -198,7 +211,7 @@ const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const DashboardView = () => (
     <div>
         <h3 className="text-3xl font-bold mb-6">Admin Dashboard</h3>
-        <div className="grid gap-6 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <StatCard title="Total Orders" value={stats.totalOrders} icon={PackageIcon} />
             <StatCard title="Total Users" value={stats.totalUsers} icon={UsersIcon} />
             <StatCard title="Sales Reps" value={stats.sales} icon={UsersIcon} />
@@ -212,7 +225,9 @@ const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 <CardContent><OrderStatusOverview /></CardContent>
             </Card>
             <Card className="lg:col-span-2">
-                <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>Recent Activity &amp; Orders</CardTitle>
+                </CardHeader>
                 <CardContent><RecentActivity /></CardContent>
             </Card>
         </div>
@@ -370,6 +385,29 @@ const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   const renderContent = () => {
     switch(activeTab) {
+        case 'tickets':
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900">Tickets &amp; Escalations Oversight</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Monitor all customer inquiries, team roadblocks, and authorize pending Admin approvals
+                    </p>
+                  </div>
+                  <Button onClick={() => setIsRaiseTicketOpen(true)}>
+                    + Raise Ticket
+                  </Button>
+                </div>
+
+                <TicketFlowBoard
+                  tickets={tickets}
+                  currentUserId={currentUser?.id}
+                  onSelectTicket={ticket => setSelectedTicket(ticket)}
+                  isAdminView={true}
+                />
+              </div>
+            );
         case 'users':
             return <UserManagementView />;
         case 'incoming_queue':
@@ -402,6 +440,17 @@ const AdminPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       </Modal>
       <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       <ShopifySyncModal isOpen={isSyncModalOpen} onClose={() => setIsSyncModalOpen(false)} />
+      {selectedTicket && (
+        <TicketDetailsModal
+          ticket={tickets.find(t => t.id === selectedTicket.id) || selectedTicket}
+          isOpen={Boolean(selectedTicket)}
+          onClose={() => setSelectedTicket(null)}
+        />
+      )}
+      <RaiseTicketModal
+        isOpen={isRaiseTicketOpen}
+        onClose={() => setIsRaiseTicketOpen(false)}
+      />
     </DashboardLayout>
   );
 };

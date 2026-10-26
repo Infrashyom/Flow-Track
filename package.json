@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm:dev --prefix server\" \"npm:dev --prefix client\"",
+    "build": "npm run build --prefix client",
     "start": "npm run build --prefix client && npm start --prefix server",
     "seed": "npm run seed --prefix server"
   },

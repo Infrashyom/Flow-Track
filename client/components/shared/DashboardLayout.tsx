@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Role } from '../../types';
-import { HomeIcon, ClipboardListIcon, UsersIcon, BarChartIcon, PencilRulerIcon, TruckIcon, MenuIcon, LogOutIcon, PackageIcon, CheckCircleIcon } from '../icons/Icons';
+import { HomeIcon, ClipboardListIcon, UsersIcon, BarChartIcon, PencilRulerIcon, TruckIcon, MenuIcon, LogOutIcon, PackageIcon, CheckCircleIcon, TicketIcon } from '../icons/Icons';
 import { useAppContext } from '../../store/AppContext';
 
 interface DashboardLayoutProps {
@@ -17,10 +17,12 @@ interface DashboardLayoutProps {
 const sidebarLinks: { [key in Role]?: { name: string; icon: React.ElementType, id: string }[] } = {
   [Role.ADMIN]: [
     { name: 'Dashboard', icon: BarChartIcon, id: 'dashboard' },
+    { name: 'Tickets & Flow', icon: TicketIcon, id: 'tickets' },
     { name: 'User Management', icon: UsersIcon, id: 'users' },
-    { name: 'Incoming Queue', icon: ClipboardListIcon, id: 'incoming_queue' },
+    { name: 'Incoming Orders', icon: PackageIcon, id: 'incoming_queue' },
   ],
   [Role.TEAM]: [
+    { name: 'Tickets & Inquiries', icon: TicketIcon, id: 'tickets' },
     { name: 'Incoming Queue', icon: ClipboardListIcon, id: 'incoming_queue' },
     { name: 'Track Progress', icon: TruckIcon, id: 'track_progress' },
     { name: 'Out for Delivery', icon: CheckCircleIcon, id: 'out_for_delivery' },

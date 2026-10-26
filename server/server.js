@@ -1,4 +1,3 @@
-
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -8,6 +7,7 @@ import { fileURLToPath } from 'url';
 import orderRoutes from './routes/orderRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import ticketRoutes from './routes/ticketRoutes.js';
 
 dotenv.config();
 
@@ -26,6 +26,7 @@ app.use(express.json()); // Enable JSON body parsing
 app.use('/api/orders', orderRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/tickets', ticketRoutes);
 
 // Serve the built client-app in production
 if (process.env.NODE_ENV === 'production') {

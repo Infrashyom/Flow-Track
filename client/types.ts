@@ -1,4 +1,3 @@
-
 export enum Role {
   SALES = 'Sales',
   TEAM = 'Team',
@@ -22,11 +21,30 @@ export enum Priority {
   LOW = 'Low',
 }
 
+export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
+
+export type TicketCategory = 
+  | 'Customer Inquiry'
+  | 'Order Issue'
+  | 'Shipping'
+  | 'Artwork / Digitizing'
+  | 'Vendor & Production'
+  | 'Billing & Refund'
+  | 'General Query';
+
+export type TicketStatus = 
+  | 'Open'
+  | 'In Progress'
+  | 'Waiting on Customer'
+  | 'Pending Admin Approval'
+  | 'Resolved'
+  | 'Closed';
+
 export interface Attachment {
   id: string;
   name: string;
   url: string;
-  uploadedBy: Role;
+  uploadedBy: Role | string;
   timestamp: string;
   fromShopify?: boolean;
 }
@@ -94,6 +112,121 @@ export interface User {
 
 export interface ToastMessage {
   id: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'info';
   message: string;
+}
+
+// ==========================================
+// TICKET MANAGEMENT TYPES
+// ==========================================
+
+export interface TicketAttachment {
+  id: string;
+  name: string;
+  url: string;
+  size?: number;
+  uploadedBy: string;
+  uploadedByRole: string;
+  timestamp: string;
+}
+
+export interface TicketComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorRole: string;
+  content: string;
+  createdAt: string;
+  isAdminPing?: boolean;
+  isAdminResponse?: boolean;
+  isInternal?: boolean;
+  attachments?: TicketAttachment[];
+}
+
+export interface TicketActivity {
+  id: string;
+  action: string;
+  actorName: string;
+  actorRole: string;
+  details: string;
+  timestamp: string;
+}
+
+export interface AdminPingInfo {
+  pinged: boolean;
+  pingedAt?: string;
+  pingedBy?: {
+    id: string;
+    name: string;
+    role: string;
+  };
+  requestNote?: string;
+  status?: 'none' | 'pending' | 'approved' | 'rejected';
+  adminResponseNote?: string;
+  respondedAt?: string;
+  respondedBy?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface TicketAssignmentRecord {
+  id: string;
+  fromUser?: {
+    id: string;
+    name: string;
+    role: string;
+  } | null;
+  toUser: {
+    id: string;
+    name: string;
+    role: string;
+  };
+  assignedBy: {
+    id: string;
+    name: string;
+    role: string;
+  };
+  timestamp: string;
+}
+
+export interface Ticket {
+  id: string; // e.g. TCK-101
+  title: string;
+  description: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  
+  // References
+  relatedOrderId?: string;
+  customerName?: string;
+  customerEmail?: string;
+  
+  // People
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+    role: Role;
+  };
+  assignedTo: {
+    id: string;
+    name: string;
+    email: string;
+    role: Role;
+  } | null;
+  
+  // Admin Ping & Approval Flow
+  adminPing: AdminPingInfo;
+  
+  // Content & Audit
+  attachments: TicketAttachment[];
+  comments: TicketComment[];
+  timeline: TicketActivity[];
+  assignmentHistory?: TicketAssignmentRecord[];
+  
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
 }

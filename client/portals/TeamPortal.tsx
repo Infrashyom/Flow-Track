@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Role, OrderStatus, Order, User, Priority } from '../types';
+import { Role, OrderStatus, Order, User, Priority, Ticket } from '../types';
 import DashboardLayout from '../components/shared/DashboardLayout';
 import { useAppContext } from '../store/AppContext';
 import OrderCard from '../components/shared/OrderCard';
@@ -8,7 +8,10 @@ import OrderDetailsModal from '../components/shared/OrderDetailsModal';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/Card';
-import { CheckCircleIcon, XCircleIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon, FileUpIcon, ShopifyIcon, UsersIcon } from '../components/icons/Icons';
+import { CheckCircleIcon, XCircleIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon, FileUpIcon, ShopifyIcon, UsersIcon, TicketIcon } from '../components/icons/Icons';
+import { TicketFlowBoard } from '../components/tickets/TicketFlowBoard';
+import { TicketDetailsModal } from '../components/tickets/TicketDetailsModal';
+import { RaiseTicketModal } from '../components/tickets/RaiseTicketModal';
 
 const ITEMS_PER_PAGE = 12;
 const DIGITIZERS_PER_PAGE = 6;
@@ -625,8 +628,10 @@ export const ShopifySyncModal: React.FC<{
 };
 
 const TeamPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-  const { orders, users, updateOrderStatus, isLoading } = useAppContext();
+  const { orders, users, tickets, currentUser, updateOrderStatus, isLoading } = useAppContext();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isRaiseTicketOpen, setIsRaiseTicketOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('incoming_queue');
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   
@@ -637,13 +642,18 @@ const TeamPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   const digitizers = users.filter(u => u.role === Role.DIGITIZER);
 
-  const tabCounts = useMemo(() => ({
-    incoming_queue: orders.filter(o => [OrderStatus.AT_TEAM, OrderStatus.TEAM_REVIEW].includes(o.status)).length,
-    // Removed PARTIALLY_SHIPPED from track_progress to avoid duplication, as users want to see it in "Out for Delivery"
-    track_progress: orders.filter(o => [OrderStatus.AT_DIGITIZER, OrderStatus.AT_VENDOR].includes(o.status)).length,
-    // Added PARTIALLY_SHIPPED here
-    out_for_delivery: orders.filter(o => [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.PARTIALLY_SHIPPED].includes(o.status)).length
-  }), [orders]);
+  const tabCounts = useMemo(() => {
+    const myOpenTickets = tickets.filter(
+      t => (t.assignedTo?.id === currentUser?.id || !t.assignedTo) && t.status !== 'Resolved' && t.status !== 'Closed'
+    ).length;
+
+    return {
+      tickets: myOpenTickets > 0 ? myOpenTickets : tickets.length,
+      incoming_queue: orders.filter(o => [OrderStatus.AT_TEAM, OrderStatus.TEAM_REVIEW].includes(o.status)).length,
+      track_progress: orders.filter(o => [OrderStatus.AT_DIGITIZER, OrderStatus.AT_VENDOR].includes(o.status)).length,
+      out_for_delivery: orders.filter(o => [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.PARTIALLY_SHIPPED].includes(o.status)).length
+    };
+  }, [orders, tickets, currentUser]);
   
   const openReassignModal = (order: Order) => {
       setOrderToReassign(order);
@@ -680,6 +690,29 @@ const TeamPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'tickets':
+        return (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">Tickets &amp; Customer Inquiries</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage incoming customer queries, assign tasks to teammates, and ping Admin for approvals
+                </p>
+              </div>
+              <Button onClick={() => setIsRaiseTicketOpen(true)}>
+                + Raise New Ticket
+              </Button>
+            </div>
+
+            <TicketFlowBoard
+              tickets={tickets}
+              currentUserId={currentUser?.id}
+              onSelectTicket={ticket => setSelectedTicket(ticket)}
+              isAdminView={false}
+            />
+          </div>
+        );
       case 'track_progress': {
         const ordersInProgress = orders.filter(o =>
           [OrderStatus.AT_DIGITIZER, OrderStatus.AT_VENDOR].includes(o.status)
@@ -731,6 +764,17 @@ const TeamPortal: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
       <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
       <ShopifySyncModal isOpen={isSyncModalOpen} onClose={() => setIsSyncModalOpen(false)} />
+      {selectedTicket && (
+        <TicketDetailsModal
+          ticket={tickets.find(t => t.id === selectedTicket.id) || selectedTicket}
+          isOpen={Boolean(selectedTicket)}
+          onClose={() => setSelectedTicket(null)}
+        />
+      )}
+      <RaiseTicketModal
+        isOpen={isRaiseTicketOpen}
+        onClose={() => setIsRaiseTicketOpen(false)}
+      />
       
       <Modal 
         isOpen={reassignModalOpen} 
